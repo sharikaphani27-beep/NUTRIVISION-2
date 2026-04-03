@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriVision - Calorie Predictor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <span class="logo-icon">🥗</span>
+                <span class="logo-text">NutriVision</span>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero" style="min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div class="container" style="max-width: 600px; width: 100%;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Calorie Predictor</h1>
+                <p style="color: var(--text-secondary);">Enter a food item and quantity to predict calories</p>
+            </div>
+
+            <div class="search-box" style="padding: 2rem;">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="foodSearch" style="color: var(--text-secondary); font-size: 0.9rem;">Food Item</label>
+                    <input type="text" id="foodSearch" placeholder="e.g., Chicken, Rice, Milk..." 
+                           style="width: 100%; padding: 1rem; border: 2px solid rgba(76, 175, 80, 0.3); border-radius: 12px; background: var(--background); color: var(--text-primary); font-size: 1rem;">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="quantity" style="color: var(--text-secondary); font-size: 0.9rem;">Quantity (grams)</label>
+                    <input type="number" id="quantity" value="100" min="1" max="10000" 
+                           style="width: 100%; padding: 1rem; border: 2px solid rgba(76, 175, 80, 0.3); border-radius: 12px; background: var(--background); color: var(--text-primary); font-size: 1rem;">
+                </div>
+                
+                <button id="predictBtn" class="btn-primary" style="width: 100%;">Predict Calories</button>
+            </div>
+
+            <div id="resultCard" class="result-card hidden" style="text-align: center; padding: 2rem;">
+                <h3 id="resultFood" style="font-size: 1.5rem; margin-bottom: 1rem;"></h3>
+                <div class="calories-display" style="padding: 1rem;">
+                    <div class="calories-value" style="font-size: 4rem;">
+                        <span id="resultCalories">0</span>
+                        <small>calories</small>
+                    </div>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                    for <span id="resultQuantity">100</span>g
+                </p>
+            </div>
+
+            <div id="loadingSpinner" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Predicting...</p>
+            </div>
+
+            <div id="errorMessage" class="error-message hidden"></div>
+        </div>
+    </section>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFoods();
+            
+            const searchInput = document.getElementById('foodSearch');
+            const searchResults = document.getElementById('searchResults');
+            const predictBtn = document.getElementById('predictBtn');
+            
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 1) {
+                    searchResults.classList.remove('active');
+                    return;
+                }
+                const filtered = foods.filter(food => 
+                    food.toLowerCase().includes(query)
+                ).slice(0, 8);
+                
+                if (filtered.length > 0) {
+                    searchResults.innerHTML = filtered.map(food => 
+                        `<div class="search-result-item" data-food="${food}">${food}</div>`
+                    ).join('');
+                    searchResults.classList.add('active');
+                } else {
+                    searchResults.classList.remove('active');
+                }
+            });
+            
+            searchResults.addEventListener('click', (e) => {
+                if (e.target.classList.contains('search-result-item')) {
+                    searchInput.value = e.target.dataset.food;
+                    searchResults.classList.remove('active');
+                }
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.form-group')) {
+                    searchResults.classList.remove('active');
+                }
+            });
+            
+            predictBtn.addEventListener('click', async () => {
+                const food = searchInput.value.trim();
+                const quantity = document.getElementById('quantity').value;
+                
+                if (!food) {
+                    showError('Please enter a food item');
+                    return;
+                }
+                
+                const resultCard = document.getElementById('resultCard');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                const errorMessage = document.getElementById('errorMessage');
+                
+                resultCard.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                loadingSpinner.classList.remove('hidden');
+                
+                try {
+                    const response = await fetch('/api/predict', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ food_item: food, quantity: parseInt(quantity) })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        document.getElementById('resultFood').textContent = data.data.food_item;
+                        document.getElementById('resultCalories').textContent = data.data.calories;
+                        document.getElementById('resultQuantity').textContent = quantity;
+                        resultCard.classList.remove('hidden');
+                    } else {
+                        showError(data.message || 'Food item not found');
+                    }
+                } catch (error) {
+                    showError('An error occurred. Please try again.');
+                } finally {
+                    loadingSpinner.classList.add('hidden');
+                }
+            });
+            
+            function showError(msg) {
+                const errorMessage = document.getElementById('errorMessage');
+                errorMessage.textContent = msg;
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
