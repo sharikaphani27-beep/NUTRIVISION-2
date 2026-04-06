@@ -105,6 +105,9 @@ def daily_needs():
         'fat': round((tdee * 0.3) / 9, 0)
     })
 
-if __name__ == '__main__':
+import os
+
+if __name__ == "__main__":
     load_model()
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
